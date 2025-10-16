@@ -2,11 +2,40 @@ import sys
 import os
 import subprocess
 import json
+import platform
+import shutil
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
                              QWidget, QPushButton, QLabel, QFileDialog, QComboBox,
                              QProgressBar, QMessageBox, QLineEdit, QGroupBox, QCheckBox, QSpinBox, QRadioButton, QButtonGroup)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
 from PyQt6.QtGui import QFont
+
+
+def find_ffmpeg_executable(name):
+    """FFmpeg 실행 파일을 찾는 크로스 플랫폼 함수"""
+    # Windows에서는 .exe 확장자 추가
+    if platform.system() == 'Windows':
+        if not name.endswith('.exe'):
+            name += '.exe'
+
+    # PATH에서 실행 파일 찾기
+    executable = shutil.which(name)
+    if executable:
+        return executable
+
+    # Windows에서 일반적인 FFmpeg 설치 경로들도 확인
+    if platform.system() == 'Windows':
+        common_paths = [
+            r'C:\ffmpeg\bin\{}'.format(name),
+            r'C:\Program Files\ffmpeg\bin\{}'.format(name),
+            r'C:\Program Files (x86)\ffmpeg\bin\{}'.format(name),
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                return path
+
+    # 기본값 반환 (확장자 포함)
+    return name
 
 
 class VideoConverter(QThread):
@@ -30,8 +59,9 @@ class VideoConverter(QThread):
 
     def run(self):
         try:
-            # FFmpeg 명령어 구성
-            cmd = ['ffmpeg']
+            # FFmpeg 명령어 구성 (크로스 플랫폼)
+            ffmpeg_path = find_ffmpeg_executable('ffmpeg')
+            cmd = [ffmpeg_path]
 
             cmd.extend(['-i', self.input_path, '-y'])
 
@@ -75,12 +105,14 @@ class VideoConverter(QThread):
 
             self.status_updated.emit(f"변환 명령어: {' '.join(cmd)}")
 
-            # FFmpeg 프로세스 실행
+            # FFmpeg 프로세스 실행 (크로스 플랫폼 호환)
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                universal_newlines=True
+                universal_newlines=True,
+                shell=False,  # 보안을 위해 shell 사용 안함
+                creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0
             )
 
             # 프로세스 완료 대기
@@ -97,7 +129,16 @@ class VideoConverter(QThread):
     def stop(self):
         self.is_running = False
         if self.process:
-            self.process.terminate()
+            try:
+                # Windows와 Unix 모두에서 안전한 프로세스 종료
+                self.process.terminate()
+                # Windows에서는 terminate()가 즉시 종료되지 않을 수 있으므로 잠시 대기
+                import time
+                time.sleep(0.1)
+                if self.process.poll() is None:  # 아직 종료되지 않았다면
+                    self.process.kill()  # 강제 종료
+            except Exception:
+                pass  # 프로세스가 이미 종료된 경우 무시
 
 
 class VideoConverterApp(QMainWindow):
@@ -420,12 +461,19 @@ class VideoConverterApp(QMainWindow):
 
     def extract_video_info(self, file_path):
         try:
-            # ffprobe를 사용하여 비디오 정보 추출
+            # ffprobe를 사용하여 비디오 정보 추출 (크로스 플랫폼)
+            ffprobe_path = find_ffmpeg_executable('ffprobe')
             cmd = [
-                'ffprobe', '-v', 'quiet', '-print_format', 'json',
+                ffprobe_path, '-v', 'quiet', '-print_format', 'json',
                 '-show_streams', '-select_streams', 'v:0', file_path
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                shell=False,  # 보안을 위해 shell 사용 안함
+                creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0
+            )
 
             if result.returncode == 0:
                 data = json.loads(result.stdout)
