@@ -1,0 +1,10 @@
+[project]
+name = "dabin"
+version = "0.1.0"
+description = "Video processing applications with PyQt6"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt6>=6.9.1",
+    "opencv-python>=4.8.0",
+]
