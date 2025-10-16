@@ -12,12 +12,18 @@ cd /d "%~dp0"
 REM uv가 설치되어 있는지 확인
 where uv >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ERROR: uv is not installed!
-    echo 오류: uv가 설치되지 않았습니다!
-    echo Please run install_dependencies.bat first
-    echo 먼저 install_dependencies.bat을 실행해주세요
-    pause
-    exit /b 1
+    echo uv is not installed. Setting up uv and dependencies...
+    echo uv가 설치되어 있지 않습니다. uv와 의존성을 설정합니다...
+    echo.
+
+    call setup.bat
+    if %errorlevel% neq 0 (
+        echo Setup failed!
+        echo 설정에 실패했습니다!
+        pause
+        exit /b 1
+    )
+    echo.
 )
 
 REM uv로 애플리케이션 실행
