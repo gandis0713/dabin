@@ -9,13 +9,7 @@ echo.
 REM Change to script directory
 cd /d "%~dp0"
 
-REM Check Python installation
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: Python is not installed or not in PATH
-    echo Please install Python from https://python.org
-    exit /b 1
-)
+REM uv manages Python automatically, no need to check for system Python
 
 REM Check uv installation
 where uv >nul 2>&1
