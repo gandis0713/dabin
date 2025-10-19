@@ -1,8 +1,15 @@
 @echo off
 chcp 65001 >nul 2>&1
-REM uv setup batch file
-REM Called by other batch files
 
+REM Check for administrator privileges
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Requesting administrator privileges...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
+REM uv setup batch file
 echo Setting up uv and dependencies...
 echo.
 
